@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.lightBlue,
         accentColor: Colors.purple,
       ),
-      themeMode: ThemeMode.dark,
+      themeMode: ThemeMode.light,
       home: const MyHomePage(
         title: 'Weather App',
       ),
