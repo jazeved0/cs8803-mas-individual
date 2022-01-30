@@ -30,19 +30,15 @@ class MyApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       home: const MyHomePage(
         title: 'Weather App',
-        openWeatherApiKey: "db0ab04a0e5898f7489adfa40bc08c29",
       ),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage(
-      {Key? key, required this.title, required this.openWeatherApiKey})
-      : super(key: key);
+  const MyHomePage({Key? key, required this.title}) : super(key: key);
 
   final String title;
-  final String openWeatherApiKey;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -50,18 +46,18 @@ class MyHomePage extends StatefulWidget {
 
 class Weather {
   final String city;
-  final double actualTemp;
+  final double temp;
   final double minTemp;
   final double maxTemp;
   final String weather;
-  final Uri weatherIcon;
+  final Uri weatherIconUrl;
   const Weather(
       {required this.city,
-      required this.actualTemp,
+      required this.temp,
       required this.minTemp,
       required this.maxTemp,
       required this.weather,
-      required this.weatherIcon});
+      required this.weatherIconUrl});
 }
 
 enum Temperature {
@@ -92,31 +88,20 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<Weather> _getWeatherInternal() async {
     var position = await _determinePosition();
 
-    // Using geo current weather API:
-    // https://openweathermap.org/current#geo
+    // Use wrapper around OpenWeatherMap API
     var url = Uri.parse(
-        'https://api.openweathermap.org/data/2.5/weather?lat=${position.latitude}&lon=${position.longitude}&appid=${widget.openWeatherApiKey}');
-    print(url.toString());
-    var response = await http.get(url);
+        'https://us-central1-jazev-w-app.cloudfunctions.net/getWeather?latitude=${position.latitude}&longitude=${position.longitude}&temp_unit=kelvin');
+    var response = await http.get(url, headers: {"Accept": "application/json"});
     var jsonData = json.decode(response.body);
 
     if (response.statusCode == 200) {
-      // Shape of JSON data from:
-      // https://openweathermap.org/current#current_JSON
-      List<dynamic> weatherList = jsonData["weather"];
-      if (weatherList.isEmpty) {
-        return Future.error("No weather conditions returned from API");
-      }
-
       return Weather(
-        city: jsonData["name"],
-        actualTemp: jsonData["main"]["temp"],
-        minTemp: jsonData["main"]["temp_min"],
-        maxTemp: jsonData["main"]["temp_max"],
-        weather: weatherList[0]["main"],
-        weatherIcon: Uri.parse(
-            "http://openweathermap.org/img/wn/${weatherList[0]["icon"]}@4x.png"),
-      );
+          city: jsonData["city"],
+          temp: jsonData["temp"],
+          minTemp: jsonData["min_temp"],
+          maxTemp: jsonData["max_temp"],
+          weather: jsonData["weather"],
+          weatherIconUrl: Uri.parse(jsonData["weather_icon_url"]));
     } else if (response.statusCode >= 400 && response.statusCode < 600) {
       return Future.error(jsonData["message"]);
     } else {
@@ -243,13 +228,11 @@ class _MyHomePageState extends State<MyHomePage> {
                         TextButton(
                           onPressed: () => Navigator.pop(context),
                           child: const Text('CANCEL'),
-                          style: TextButton.styleFrom(primary: Colors.white),
                         ),
                         TextButton(
                           onPressed: () =>
                               Navigator.pop(context, selectedRatio),
                           child: const Text('CONFIRM'),
-                          style: TextButton.styleFrom(primary: Colors.white),
                         ),
                       ],
                     );
@@ -301,7 +284,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       CachedNetworkImage(
-                        imageUrl: data.weatherIcon.toString(),
+                        imageUrl: data.weatherIconUrl.toString(),
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
                           color: Colors.transparent,
@@ -316,7 +299,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         style: const TextStyle(fontSize: 30),
                       ),
                       Text(
-                        "${_convertTemperature(data.actualTemp).round()}°",
+                        "${_convertTemperature(data.temp).round()}°",
                         textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
